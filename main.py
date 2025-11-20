@@ -52,7 +52,7 @@ async def handle_message(message: types.Message):
         if len(bot_answer) > 4000:
             bot_answer = bot_answer[:4000] + "...(ответ обрезан)"
             
-        await message.answer(bot_answer, parse_mode="Markdown")
+        await message.answer(bot_answer)
         
     except Exception as e:
         await message.answer(f"Произошла ошибка: {str(e)}")
