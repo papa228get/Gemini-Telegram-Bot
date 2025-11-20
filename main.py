@@ -1,9 +1,9 @@
 import asyncio
 import os
 import logging
-import io  # Для работы с файлами в памяти
 from dotenv import load_dotenv
-from PIL import Image # Библиотека для обработки картинок
+from PIL import Image
+from aiohttp import web # Добавляем веб-сервер
 
 # Библиотеки для Телеграма
 from aiogram import Bot, Dispatcher, types, F
@@ -33,9 +33,8 @@ dp = Dispatcher()
 
 logging.basicConfig(level=logging.INFO)
 
-# --- Вспомогательная функция отправки ---
+# --- Вспомогательные функции ---
 async def send_safe_message(message: types.Message, text: str):
-    """Отправляет сообщение с попыткой MarkdownV2, при ошибке шлет обычный текст"""
     if len(text) > 4000:
         text = text[:4000] + "..."
     try:
@@ -43,35 +42,39 @@ async def send_safe_message(message: types.Message, text: str):
     except Exception:
         await message.answer(text)
 
-# --- Обработчики ---
+# --- Веб-сервер для Render (Health Check) ---
+async def health_check(request):
+    return web.Response(text="Bot is alive!")
+
+async def start_web_server():
+    # Render сам дает порт через переменную окружения PORT
+    port = int(os.environ.get("PORT", 8080))
+    app = web.Application()
+    app.router.add_get('/', health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    print(f"Web-сервер запущен на порту {port}")
+    await site.start()
+
+# --- Обработчики Бота ---
 
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
-    await message.answer("Привет! Я вижу и слышу (текст).\nПришли мне фото и спроси, что на нем!")
+    await message.answer("Привет! Я живу в облаке и вижу картинки.")
 
-# Обработка КАРТИНОК
 @dp.message(F.photo)
 async def handle_photo(message: types.Message):
     await bot.send_chat_action(chat_id=message.chat.id, action="upload_photo")
-    
     try:
-        # 1. Скачиваем фото из Телеграма в память (не сохраняя на диск)
         photo_file = await bot.download(message.photo[-1])
         img = Image.open(photo_file)
-        
-        # 2. Берем подпись к фото (если есть) или придумываем вопрос
-        user_text = message.caption if message.caption else "Опиши, что на этом изображении?"
-        
-        # 3. Отправляем картинку + текст в Gemini
+        user_text = message.caption if message.caption else "Что на этом изображении?"
         response = model.generate_content([user_text, img])
-        
-        # 4. Отправляем ответ
         await send_safe_message(message, response.text)
-        
     except Exception as e:
-        await message.answer(f"Ошибка обработки фото: {str(e)}")
+        await message.answer(f"Ошибка: {str(e)}")
 
-# Обработка ТЕКСТА
 @dp.message(F.text)
 async def handle_message(message: types.Message):
     await bot.send_chat_action(chat_id=message.chat.id, action="typing")
@@ -81,10 +84,13 @@ async def handle_message(message: types.Message):
     except Exception as e:
         await message.answer(f"Ошибка: {str(e)}")
 
-# --- Запуск ---
+# --- Главный запуск ---
 async def main():
-    print("Бот с функцией Зрения (Vision) запущен!")
-    await dp.start_polling(bot)
+    # Запускаем и бота, и веб-сервер параллельно
+    await asyncio.gather(
+        dp.start_polling(bot),
+        start_web_server()
+    )
 
 if __name__ == "__main__":
     try:
