@@ -22,7 +22,7 @@ gemini_key = os.getenv("GEMINI_API_KEY")
 hf_key = os.getenv("HF_API_KEY")
 
 # API Художника
-HF_API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+HF_API_URL = "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5"
 HF_HEADERS = {"Authorization": f"Bearer {hf_key}"}
 
 # 2. Настройка Gemini
