@@ -57,7 +57,7 @@ async def start_web_server():
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
 
-# --- Рисование ---
+# --- Рисование --
 async def query_image_api(prompt_text):
     async with ClientSession() as session:
         try:
